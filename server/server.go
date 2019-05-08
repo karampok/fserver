@@ -21,11 +21,14 @@ func NewServer(d, p string) *Server {
 
 func (s *Server) auth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.pass != "" { //!currentUser(r).IsAdmin {
-			http.NotFound(w, r)
+		_, pass, _ := r.BasicAuth()
+
+		if pass == s.pass {
+			h(w, r)
 			return
 		}
-		h(w, r)
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+		http.Error(w, "Unauthorized.", 401)
 	}
 }
 
