@@ -1,7 +1,15 @@
 package server
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/karampok/fserver/filesystem"
 )
@@ -41,4 +49,42 @@ func (s *Server) routes() {
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("server", ".me")
 	s.rtr.ServeHTTP(w, r)
+}
+
+// GenTLSConfig ...
+func GenTLSConfig() *tls.Config {
+	ret := &tls.Config{}
+	ret.Certificates = make([]tls.Certificate, 1)
+
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(1658),
+		Subject: pkix.Name{
+			Organization: []string{"ME"},
+			Country:      []string{"CH"},
+			Province:     []string{"ZRH"},
+		},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(0, 0, 1),
+		SubjectKeyId: []byte{1, 2, 3, 4, 6},
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		DNSNames:     []string{"fserver"},
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &priv.PublicKey, priv)
+	if err != nil {
+		panic(err)
+	}
+
+	ret.Certificates[0] = tls.Certificate{
+		Certificate: [][]byte{certBytes},
+		PrivateKey:  priv,
+	}
+
+	return ret
 }
